@@ -218,4 +218,62 @@ public class Lexer {
 
         throw new RuntimeException("Unknown operator starting at line " + startLine + ", col " + startCol);
     }
+    private final LexemeTable lexemeTable = new LexemeTable();
+    private final IdentifierTable identifierTable = new IdentifierTable();
+
+    public void tokenizeAll() {
+        while (true) {
+            skipWhitespace();
+            char c = peek();
+            if (c == '\0') {
+                lexemeTable.add(new Token(TokenType.EOF, "", line, col));
+                break;
+            }
+
+            Token token;
+            if (isLetter(c)) {
+                token = readIdentifierOrKeyword();
+                if (token.getType() == TokenType.IDENTIFIER) {
+                    identifierTable.add(token.getValue());
+                }
+            } else if (isDigit(c) || c == '.') {
+                token = readNumber();
+            } else if (c == '(' || c == ')' || c == ',' || c == ':' || c == ';') {
+                token = new Token(mapSymbolToTokenType(c), String.valueOf(c), line, col);
+                next();
+            } else if (isOperatorStart(c)) {
+                token = readOperator();
+            } else {
+                throw new RuntimeException("Unknown character '" + c + "' at line " + line + ", col " + col);
+            }
+
+            lexemeTable.add(token);
+        }
+    }
+
+    private TokenType mapSymbolToTokenType(char c) {
+        switch (c) {
+            case '(': return TokenType.LPAREN;
+            case ')': return TokenType.RPAREN;
+            case ',': return TokenType.COMMA;
+            case ':': return TokenType.COLON;
+            case ';': return TokenType.SEMICOLON;
+            default: return TokenType.UNKNOWN;
+        }
+    }
+
+    public void printTables() {
+        lexemeTable.print();
+        System.out.println();
+        identifierTable.print();
+    }
+
+    public LexemeTable getLexemeTable() {
+        return lexemeTable;
+    }
+
+    public IdentifierTable getIdentifierTable() {
+        return identifierTable;
+    }
+
 }
