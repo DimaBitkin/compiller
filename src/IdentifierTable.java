@@ -1,7 +1,7 @@
 import java.util.*;
 
 public class IdentifierTable {
-    private final Map<String, Integer> table = new LinkedHashMap<>();
+    private final Map<String, Integer> table = new HashMap<>();
     private int nextId = 1;
 
     public int add(String name) {

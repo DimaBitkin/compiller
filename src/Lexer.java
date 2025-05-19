@@ -22,15 +22,37 @@ public class Lexer {
             Map.entry("/", TokenType.DIV),
             Map.entry("and", TokenType.AND),
             Map.entry("not", TokenType.NOT),
-            Map.entry("ass", TokenType.UNKNOWN) // оператор присваивания "ass"
+            Map.entry("ass", TokenType.ASSIGN) // оператор присваивания "ass"
     );
 
-    private static final Map<String, TokenType> KEYWORDS = Map.of(
-            "true", TokenType.TRUE,
-            "false", TokenType.FALSE,
-            "or", TokenType.OR,
-            "and", TokenType.AND,
-            "not", TokenType.NOT
+    private static final Map<String, TokenType> KEYWORDS = Map.ofEntries(
+            Map.entry("true", TokenType.TRUE),
+            Map.entry("false", TokenType.FALSE),
+            Map.entry("or", TokenType.OR),
+            Map.entry("and", TokenType.AND),
+            Map.entry("not", TokenType.NOT),
+
+            Map.entry("program", TokenType.PROGRAM),
+            Map.entry("var", TokenType.VAR),
+            Map.entry("begin", TokenType.BEGIN),
+            Map.entry("end", TokenType.END),
+
+            Map.entry("int", TokenType.INT),
+            Map.entry("float", TokenType.FLOAT_TYPE), // если FLOAT_TYPE в enum
+            Map.entry("bool", TokenType.BOOL),
+
+            Map.entry("if", TokenType.IF),
+            Map.entry("then", TokenType.THEN),
+            Map.entry("else", TokenType.ELSE),
+
+            Map.entry("for", TokenType.FOR),
+            Map.entry("to", TokenType.TO),
+            Map.entry("do", TokenType.DO),
+
+            Map.entry("while", TokenType.WHILE),
+
+            Map.entry("read", TokenType.READ),
+            Map.entry("write", TokenType.WRITE)
     );
 
     public Lexer(String input) {
@@ -114,6 +136,9 @@ public class Lexer {
         } else if (c == ';') {
             next();
             return new Token(TokenType.SEMICOLON, ";", startLine, startCol);
+        } else if (c == '.') {
+            next();
+            return new Token(TokenType.DOT, ".", startLine, startCol);
         } else if (isOperatorStart(c)) {
             return readOperator();
         } else {
@@ -218,6 +243,7 @@ public class Lexer {
 
         throw new RuntimeException("Unknown operator starting at line " + startLine + ", col " + startCol);
     }
+
     private final LexemeTable lexemeTable = new LexemeTable();
     private final IdentifierTable identifierTable = new IdentifierTable();
 
