@@ -31,6 +31,7 @@ public class Lexer {
             Map.entry("or", TokenType.OR),
             Map.entry("and", TokenType.AND),
             Map.entry("not", TokenType.NOT),
+            Map.entry("ass", TokenType.ASSIGN),
 
             Map.entry("program", TokenType.PROGRAM),
             Map.entry("var", TokenType.VAR),
@@ -174,6 +175,11 @@ public class Lexer {
         return new Token(type, word, startLine, startCol);
     }
 
+    private char peekNext() {
+        if (pos + 1 >= input.length()) return '\0';
+        return input.charAt(pos + 1);
+    }
+
     private Token readNumber() {
         int startLine = line;
         int startCol = col;
@@ -181,6 +187,15 @@ public class Lexer {
 
         boolean hasDot = false;
         boolean hasExp = false;
+
+        char first = peek();
+
+        // Если точка не сопровождается цифрой, это не число
+        if (first == '.' && !isDigit(peekNext())) {
+            // Не число — это отдельный символ '.'
+            next(); // продвигаемся вперёд
+            return new Token(TokenType.DOT, ".", startLine, startCol);
+        }
 
         while (true) {
             char c = peek();
