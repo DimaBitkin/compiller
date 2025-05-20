@@ -25,6 +25,10 @@ public class Parser {
         return false;
     }
 
+    private boolean check(TokenType expected) {
+        return peek().getType() == expected;
+    }
+
     private void expect(TokenType expected) {
         if (!match(expected)) {
             Token current = peek();
@@ -41,8 +45,10 @@ public class Parser {
     public void parseProgram() {
         expect(TokenType.PROGRAM);
         expect(TokenType.IDENTIFIER); // имя программы
+        match(TokenType.SEMICOLON);
         expect(TokenType.VAR);
         parseDescription();
+        match(TokenType.SEMICOLON);
         expect(TokenType.BEGIN);
         parseCompoundOperator();
         expect(TokenType.END);
@@ -71,6 +77,7 @@ public class Parser {
     private void parseCompoundOperator() {
         parseOperator();
         while (match(TokenType.SEMICOLON)) {
+            if (check(TokenType.END)) break; // <- пропускаем ";" перед END
             parseOperator();
         }
     }
