@@ -5,9 +5,13 @@ public class Lexer {
     private int pos = 0;
     private int line = 1;
     private int col = 1;
+    private final LexemeTable lexemeTable = new LexemeTable();
+    private final IdentifierTable identifierTable = new IdentifierTable();
 
+    //Набор символов, с которых могут начинаться операторы,
     private static final Set<Character> OPERATOR_START_CHARS = Set.of('=', '<', '>', '+', '-', '*', '/', '(', ')', ',', ':');
 
+    //Карта строковых представлений операторов
     private static final Map<String, TokenType> OPERATORS = Map.ofEntries(
             Map.entry("=", TokenType.EQ),
             Map.entry("<>", TokenType.NEQ),
@@ -24,7 +28,7 @@ public class Lexer {
             Map.entry("not", TokenType.NOT),
             Map.entry("ass", TokenType.ASSIGN) // оператор присваивания "ass"
     );
-
+    //Карта ключевых слов языка
     private static final Map<String, TokenType> KEYWORDS = Map.ofEntries(
             Map.entry("true", TokenType.TRUE),
             Map.entry("false", TokenType.FALSE),
@@ -55,16 +59,25 @@ public class Lexer {
             Map.entry("read", TokenType.READ),
             Map.entry("write", TokenType.WRITE)
     );
-
+    //Набор состояний
+    private enum State {
+        START,
+        IDENTIFIER_OR_KEYWORD,
+        NUMBER,
+        OPERATOR,
+        COMMENT,
+        ERROR
+    };
+    //Конструктор
     public Lexer(String input) {
         this.input = input;
     }
-
+    //Возвращает текущий символ (без продвижения позиции
     private char peek() {
         if (pos >= input.length()) return '\0';
         return input.charAt(pos);
     }
-
+    //Возвращает текущий символ и сдвигает позицию вперёд
     private char next() {
         if (pos >= input.length()) return '\0';
         char ch = input.charAt(pos++);
@@ -76,7 +89,7 @@ public class Lexer {
         }
         return ch;
     }
-
+    //Пропускает пробелы, табы, переводы строк и комментарии { ... }
     private void skipWhitespace() {
         while (true) {
             char c = peek();
@@ -89,7 +102,7 @@ public class Lexer {
             }
         }
     }
-
+    //Пропускает символы до закрывающей фигурной скобки }. Бросает исключение, если комментарий не закрыт.
     private void skipComment() {
         next(); // пропускаем '{'
         while (true) {
@@ -105,56 +118,17 @@ public class Lexer {
             }
         }
     }
-
-    // Новый потоковый метод — возвращает следующий токен или EOF
-    public Token nextToken() {
-        skipWhitespace();
-
-        int startLine = line;
-        int startCol = col;
-
-        char c = peek();
-        if (c == '\0') {
-            return new Token(TokenType.EOF, "", startLine, startCol);
-        }
-
-        if (isLetter(c)) {
-            return readIdentifierOrKeyword();
-        } else if (isDigit(c) || c == '.') {
-            return readNumber();
-        } else if (c == '(') {
-            next();
-            return new Token(TokenType.LPAREN, "(", startLine, startCol);
-        } else if (c == ')') {
-            next();
-            return new Token(TokenType.RPAREN, ")", startLine, startCol);
-        } else if (c == ',') {
-            next();
-            return new Token(TokenType.COMMA, ",", startLine, startCol);
-        } else if (c == ':') {
-            next();
-            return new Token(TokenType.COLON, ":", startLine, startCol);
-        } else if (c == ';') {
-            next();
-            return new Token(TokenType.SEMICOLON, ";", startLine, startCol);
-        } else if (c == '.') {
-            next();
-            return new Token(TokenType.DOT, ".", startLine, startCol);
-        } else if (isOperatorStart(c)) {
-            return readOperator();
-        } else {
-            throw new RuntimeException("Unknown character '" + c + "' at line " + line + ", col " + col);
-        }
-    }
-
+    //Проверяют, является ли символ буквой
     private boolean isLetter(char c) {
         return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
     }
-
+    //Проверяют, является ли символ цифрой
     private boolean isDigit(char c) {
         return (c >= '0' && c <= '9');
     }
 
+    //Считывает идентификатор (или ключевое слово) из букв и цифр.
+    //Возвращает токен типа IDENTIFIER если не найден в KEYWORDS или соответствующий ключевому слову
     private Token readIdentifierOrKeyword() {
         int startLine = line;
         int startCol = col;
@@ -174,12 +148,13 @@ public class Lexer {
         TokenType type = KEYWORDS.getOrDefault(word.toLowerCase(), TokenType.IDENTIFIER);
         return new Token(type, word, startLine, startCol);
     }
-
+    //Возвращает следующий символ после текущего, не сдвигая позицию
     private char peekNext() {
         if (pos + 1 >= input.length()) return '\0';
         return input.charAt(pos + 1);
     }
-
+    //Считывает целое или вещественное число
+    //Возвращает TokenType.INTEGER или TokenType.FLOAT
     private Token readNumber() {
         int startLine = line;
         int startCol = col;
@@ -230,10 +205,14 @@ public class Lexer {
         }
     }
 
+    //Проверяет, начинается ли оператор с символа char c
     private boolean isOperatorStart(char c) {
         return OPERATOR_START_CHARS.contains(c);
     }
 
+    //Пытается найти оператор длиной от 3 до 1 символа, начиная с текущей позиции.
+    //Если найден — возвращает соответствующий токен.
+    //Если неизвестный оператор — бросает ошибку.
     private Token readOperator() {
         int startLine = line;
         int startCol = col;
@@ -259,9 +238,35 @@ public class Lexer {
         throw new RuntimeException("Unknown operator starting at line " + startLine + ", col " + startCol);
     }
 
-    private final LexemeTable lexemeTable = new LexemeTable();
-    private final IdentifierTable identifierTable = new IdentifierTable();
 
+
+
+    //Преобразует символ (, ), ; и т.п. в соответствующий TokenType
+    private TokenType mapSymbolToTokenType(char c) {
+        switch (c) {
+            case '(': return TokenType.LPAREN;
+            case ')': return TokenType.RPAREN;
+            case ',': return TokenType.COMMA;
+            case ':': return TokenType.COLON;
+            case ';': return TokenType.SEMICOLON;
+            default: return TokenType.UNKNOWN;
+        }
+    }
+    //Печатает содержимое таблиц лексем и идентификаторов.
+    public void printTables() {
+        lexemeTable.print();
+        System.out.println();
+        identifierTable.print();
+    }
+    //Возвращают ссылку на таблицу лексем
+    public LexemeTable getLexemeTable() {
+        return lexemeTable;
+    }
+    //Возвращают ссылку на таблицу идентификаторов
+    public IdentifierTable getIdentifierTable() {
+        return identifierTable;
+    }
+    //Основной метод: полностью обходит входной текст, генерирует все токены и заполняет таблицы.
     public void tokenizeAll() {
         while (true) {
             skipWhitespace();
@@ -290,31 +295,6 @@ public class Lexer {
 
             lexemeTable.add(token);
         }
-    }
-
-    private TokenType mapSymbolToTokenType(char c) {
-        switch (c) {
-            case '(': return TokenType.LPAREN;
-            case ')': return TokenType.RPAREN;
-            case ',': return TokenType.COMMA;
-            case ':': return TokenType.COLON;
-            case ';': return TokenType.SEMICOLON;
-            default: return TokenType.UNKNOWN;
-        }
-    }
-
-    public void printTables() {
-        lexemeTable.print();
-        System.out.println();
-        identifierTable.print();
-    }
-
-    public LexemeTable getLexemeTable() {
-        return lexemeTable;
-    }
-
-    public IdentifierTable getIdentifierTable() {
-        return identifierTable;
     }
 
 }
