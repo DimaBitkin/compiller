@@ -46,7 +46,7 @@ public class Parser {
         expect(TokenType.PROGRAM);
         expect(TokenType.IDENTIFIER); // имя программы
         match(TokenType.SEMICOLON);
-        expect(TokenType.VAR);
+        match(TokenType.VAR);
         parseDescription();
         match(TokenType.SEMICOLON);
         expect(TokenType.BEGIN);
