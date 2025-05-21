@@ -67,7 +67,7 @@ public class Lexer {
         OPERATOR,
         COMMENT,
         ERROR
-    };
+    }
     //Конструктор
     public Lexer(String input) {
         this.input = input;
@@ -267,33 +267,116 @@ public class Lexer {
         return identifierTable;
     }
     //Основной метод: полностью обходит входной текст, генерирует все токены и заполняет таблицы.
+
     public void tokenizeAll() {
+        State state = State.START;
+        StringBuilder buffer = new StringBuilder();
+        int tokenStartLine = line;
+        int tokenStartCol = col;
+
         while (true) {
             skipWhitespace();
             char c = peek();
-            if (c == '\0') {
-                lexemeTable.add(new Token(TokenType.EOF, "", line, col));
-                break;
-            }
 
-            Token token;
-            if (isLetter(c)) {
-                token = readIdentifierOrKeyword();
-                if (token.getType() == TokenType.IDENTIFIER) {
-                    identifierTable.add(token.getValue());
-                }
-            } else if (isDigit(c) || c == '.') {
-                token = readNumber();
-            } else if (c == '(' || c == ')' || c == ',' || c == ':' || c == ';') {
-                token = new Token(mapSymbolToTokenType(c), String.valueOf(c), line, col);
-                next();
-            } else if (isOperatorStart(c)) {
-                token = readOperator();
-            } else {
-                throw new RuntimeException("Unknown character '" + c + "' at line " + line + ", col " + col);
-            }
+            switch (state) {
+                case START:
+                    skipWhitespace();
+                    c = peek();
+                    buffer.setLength(0);
+                    tokenStartLine = line;
+                    tokenStartCol = col;
 
-            lexemeTable.add(token);
+                    if (c == '\0') {
+                        lexemeTable.add(new Token(TokenType.EOF, "", line, col));
+                        return;
+                    } else if (isLetter(c)) {
+                        state = State.IDENTIFIER_OR_KEYWORD;
+                    } else if (isDigit(c) || c == '.') {
+                        state = State.NUMBER;
+                    }else if (c == '(' || c == ')' || c == ',' || c == ':' || c == ';') {
+                        Token token = new Token(mapSymbolToTokenType(c), String.valueOf(c), line, col);
+                        next();
+                        lexemeTable.add(token);
+                        state = State.START;
+                        continue;
+                    }else if (isOperatorStart(c)) {
+                        state = State.OPERATOR;
+                    } else {
+                        throw new RuntimeException("Unknown character '" + c + "' at line " + line + ", col " + col);
+                    }
+                    break;
+
+                case IDENTIFIER_OR_KEYWORD:
+                    while (isLetter(peek()) || isDigit(peek())) {
+                        buffer.append(next());
+                    }
+                    String word = buffer.toString();
+                    TokenType type = KEYWORDS.getOrDefault(word.toLowerCase(), TokenType.IDENTIFIER);
+                    lexemeTable.add(new Token(type, word, tokenStartLine, tokenStartCol));
+                    if (type == TokenType.IDENTIFIER) identifierTable.add(word);
+                    state = State.START;
+                    break;
+
+                case NUMBER:
+                    boolean hasDot = false, hasExp = false;
+                    if (peek() == '.' && !isDigit(peekNext())) {
+                        buffer.append(next());
+                        lexemeTable.add(new Token(TokenType.DOT, buffer.toString(), tokenStartLine, tokenStartCol));
+                        state = State.START;
+                        break;
+                    }
+
+                    while (true) {
+                        c = peek();
+                        if (isDigit(c)) {
+                            buffer.append(next());
+                        } else if (c == '.' && !hasDot) {
+                            hasDot = true;
+                            buffer.append(next());
+                        } else if ((c == 'e' || c == 'E') && !hasExp) {
+                            hasExp = true;
+                            buffer.append(next());
+                            char sign = peek();
+                            if (sign == '+' || sign == '-') buffer.append(next());
+                        } else {
+                            break;
+                        }
+                    }
+
+                    char suffix = peek();
+                    if ("bBoOdDhH".indexOf(suffix) >= 0) {
+                        buffer.append(next());
+                        lexemeTable.add(new Token(TokenType.INTEGER, buffer.toString(), tokenStartLine, tokenStartCol));
+                    } else if (hasDot || hasExp) {
+                        lexemeTable.add(new Token(TokenType.FLOAT, buffer.toString(), tokenStartLine, tokenStartCol));
+                    } else {
+                        lexemeTable.add(new Token(TokenType.INTEGER, buffer.toString(), tokenStartLine, tokenStartCol));
+                    }
+                    state = State.START;
+                    break;
+
+                case OPERATOR:
+                    int maxLen = Math.min(3, input.length() - pos);
+                    boolean matched = false;
+                    for (int len = maxLen; len > 0; len--) {
+                        String op = input.substring(pos, pos + len).toLowerCase();
+                        System.out.println((op));
+                        if (OPERATORS.containsKey(op)) {
+
+                            for (int i = 0; i < len; i++) buffer.append(next());
+                            lexemeTable.add(new Token(OPERATORS.get(op), buffer.toString(), tokenStartLine, tokenStartCol));
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if (!matched) {
+                        //System.out.println("Unknown operator at line " + line + ", col " + col);
+                        printTables();
+                         throw new RuntimeException("Unknown operator at line " + line + ", col " + col);
+                    }
+                    state = State.START;
+                    break;
+            }
         }
     }
 
