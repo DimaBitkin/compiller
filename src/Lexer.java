@@ -26,7 +26,7 @@ public class Lexer {
             Map.entry("/", TokenType.DIV),
             Map.entry("and", TokenType.AND),
             Map.entry("not", TokenType.NOT),
-            Map.entry("ass", TokenType.ASSIGN) // оператор присваивания "ass"
+            Map.entry("ass", TokenType.ASSIGN)
     );
     //Карта ключевых слов языка
     private static final Map<String, TokenType> KEYWORDS = Map.ofEntries(
