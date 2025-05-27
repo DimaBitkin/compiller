@@ -18,6 +18,9 @@ public class GrammarNormalizer {
         }
     }
 
+    private static int helperCounter = 0;
+    private static final Map<List<String>, String> helperMap = new HashMap<>();
+
     public static List<Rule> normalize(String startSymbol,
                                        Set<String> nonTerminals,
                                        Set<String> terminals,
@@ -32,10 +35,40 @@ public class GrammarNormalizer {
         rules = removeUnreachableSymbols(startSymbol, nonTerminals, terminals, rules);
         rules = removeEpsilonRules(nonTerminals, terminals, rules, startSymbol);
         rules = removeChainRules(nonTerminals, rules);
+        rules = convertToCNF(new HashSet<>(nonTerminals), new HashSet<>(terminals), rules);
 
-        System.out.println("\nИтоговая нормализованная грамматика:");
-        rules.forEach(System.out::println);
+//        System.out.println("\nНормализованные терминальные правила:");
+//        Set<String> printedTerminals = new HashSet<>();
+//        for (Rule rule : rules) {
+//            if (rule.right.size() == 1 && terminals.contains(rule.right.get(0))) {
+//                if (printedTerminals.add(rule.left)) {
+//                    System.out.println(rule);
+//                }
+//            }
+//        }
+//
+//        System.out.println("\nОстальные правила:");
+//        for (Rule rule : rules) {
+//            if (!(rule.right.size() == 1 && terminals.contains(rule.right.get(0)))) {
+//                System.out.println(rule);
+//            }
+//        }
+
         return rules;
+    }
+    public static void printRules(List<Rule> rules, Set<String> terminals) {
+        Map<String, List<Rule>> grouped = new TreeMap<>();
+        for (Rule rule : rules) {
+            grouped.computeIfAbsent(rule.left, k -> new ArrayList<>()).add(rule);
+        }
+
+        System.out.println("\nНормализованные правила в Хомской НФ:");
+        for (Map.Entry<String, List<Rule>> entry : grouped.entrySet()) {
+            System.out.println(entry.getKey() + " →");
+            for (Rule r : entry.getValue()) {
+                System.out.println("    " + String.join(" ", r.right));
+            }
+        }
     }
 
     static boolean languageExists(String start, Set<String> nonTerminals, Set<String> terminals, List<Rule> rules) {
@@ -109,7 +142,7 @@ public class GrammarNormalizer {
                     if (rule.right.size() == 1 && rule.right.get(0).equals("ε")) {
                         nullable.add(rule.left);
                         changed = true;
-                    } else if (rule.right.stream().allMatch(s -> nullable.contains(s))) {
+                    } else if (rule.right.stream().allMatch(nullable::contains)) {
                         nullable.add(rule.left);
                         changed = true;
                     }
@@ -192,5 +225,54 @@ public class GrammarNormalizer {
             }
         }
         return newRules;
+    }
+
+    static List<Rule> convertToCNF(Set<String> nonTerminals, Set<String> terminals, List<Rule> rules) {
+        List<Rule> cnfRules = new ArrayList<>();
+        Map<String, String> terminalToNonTerminal = new HashMap<>();
+
+        for (Rule rule : rules) {
+            List<String> right = rule.right;
+            if (right.size() == 1) {
+                String sym = right.get(0);
+                cnfRules.add(rule);
+            } else {
+                List<String> newRight = new ArrayList<>();
+                for (String sym : right) {
+                    if (terminals.contains(sym)) {
+                        terminalToNonTerminal.putIfAbsent(sym, "T_" + sym.toUpperCase());
+                        String nt = terminalToNonTerminal.get(sym);
+                        newRight.add(nt);
+                    } else {
+                        newRight.add(sym);
+                    }
+                }
+
+                for (Map.Entry<String, String> entry : terminalToNonTerminal.entrySet()) {
+                    Rule tRule = new Rule(entry.getValue(), entry.getKey());
+                    if (!cnfRules.contains(tRule)) {
+                        cnfRules.add(tRule);
+                        nonTerminals.add(entry.getValue());
+                    }
+                }
+
+                String currentLeft = rule.left;
+                while (newRight.size() > 2) {
+                    List<String> pair = Arrays.asList(newRight.get(0), newRight.get(1));
+                    String newNonTerminal = helperMap.get(pair);
+                    if (newNonTerminal == null) {
+                        newNonTerminal = "X" + (++helperCounter);
+                        helperMap.put(pair, newNonTerminal);
+                        cnfRules.add(new Rule(newNonTerminal, String.join(" ", pair)));
+                        nonTerminals.add(newNonTerminal);
+                    }
+                    newRight = new ArrayList<>(newRight.subList(1, newRight.size()));
+                    newRight.set(0, newNonTerminal);
+                }
+                cnfRules.add(new Rule(currentLeft, String.join(" ", newRight)));
+            }
+        }
+
+        return cnfRules;
     }
 }

@@ -5,13 +5,12 @@ import java.util.Set;
 
 public class Main {
     public static void main(String[] args) {
-        String code = "program Test ; float x , y; int q; begin x ass 2 ; y ass x + 1; WHILE x do y ass y * 2; end.";
+        String code = "program Test ; float x , y; int q; begin x ass 2.51 ; y ass x + 1; WHILE x do y ass y * 2; end.";
         Lexer lexer = new Lexer(code);
-        //Lexer lexer = new Lexer(code);
         lexer.tokenizeAll();
         lexer.printTables();
-        Parser parser = new Parser(lexer.getLexemeTable().getLexemes());
-        parser.parseProgram();
+//        Parser parser = new Parser(lexer.getLexemeTable().getLexemes());
+//        parser.parseProgram();
 
 //        Set<String> nonTerminals = Set.of("Q", "A", "B", "C", "D");
 //        Set<String> terminals = Set.of("a", "b", "c", "d");

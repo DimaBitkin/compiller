@@ -26,7 +26,8 @@ public class Lexer {
             Map.entry("/", TokenType.DIV),
             Map.entry("and", TokenType.AND),
             Map.entry("not", TokenType.NOT),
-            Map.entry("ass", TokenType.ASSIGN)
+            Map.entry("ass", TokenType.ASSIGN),
+            Map.entry(":=", TokenType.ASSIGN)
     );
     //Карта ключевых слов языка
     private static final Map<String, TokenType> KEYWORDS = Map.ofEntries(
@@ -255,7 +256,7 @@ public class Lexer {
     //Печатает содержимое таблиц лексем и идентификаторов.
     public void printTables() {
         lexemeTable.print();
-        System.out.println();
+       // System.out.println();
         identifierTable.print();
     }
     //Возвращают ссылку на таблицу лексем
@@ -307,51 +308,17 @@ public class Lexer {
                     break;
 
                 case IDENTIFIER_OR_KEYWORD:
-                    while (isLetter(peek()) || isDigit(peek())) {
-                        buffer.append(next());
-                    }
-                    String word = buffer.toString();
-                    TokenType type = KEYWORDS.getOrDefault(word.toLowerCase(), TokenType.IDENTIFIER);
-                    lexemeTable.add(new Token(type, word, tokenStartLine, tokenStartCol));
-                    if (type == TokenType.IDENTIFIER) identifierTable.add(word);
+                    Token idOrKeyword = readIdentifierOrKeyword();
+                    lexemeTable.add(idOrKeyword);
+                    if (idOrKeyword.getType() == TokenType.IDENTIFIER)
+                        identifierTable.add(idOrKeyword.getValue());
                     state = State.START;
                     break;
 
+
                 case NUMBER:
-                    boolean hasDot = false, hasExp = false;
-                    if (peek() == '.' && !isDigit(peekNext())) {
-                        buffer.append(next());
-                        lexemeTable.add(new Token(TokenType.DOT, buffer.toString(), tokenStartLine, tokenStartCol));
-                        state = State.START;
-                        break;
-                    }
-
-                    while (true) {
-                        c = peek();
-                        if (isDigit(c)) {
-                            buffer.append(next());
-                        } else if (c == '.' && !hasDot) {
-                            hasDot = true;
-                            buffer.append(next());
-                        } else if ((c == 'e' || c == 'E') && !hasExp) {
-                            hasExp = true;
-                            buffer.append(next());
-                            char sign = peek();
-                            if (sign == '+' || sign == '-') buffer.append(next());
-                        } else {
-                            break;
-                        }
-                    }
-
-                    char suffix = peek();
-                    if ("bBoOdDhH".indexOf(suffix) >= 0) {
-                        buffer.append(next());
-                        lexemeTable.add(new Token(TokenType.INTEGER, buffer.toString(), tokenStartLine, tokenStartCol));
-                    } else if (hasDot || hasExp) {
-                        lexemeTable.add(new Token(TokenType.FLOAT, buffer.toString(), tokenStartLine, tokenStartCol));
-                    } else {
-                        lexemeTable.add(new Token(TokenType.INTEGER, buffer.toString(), tokenStartLine, tokenStartCol));
-                    }
+                    Token idNumber = readNumber();
+                    lexemeTable.add(idNumber);
                     state = State.START;
                     break;
 
@@ -360,7 +327,7 @@ public class Lexer {
                     boolean matched = false;
                     for (int len = maxLen; len > 0; len--) {
                         String op = input.substring(pos, pos + len).toLowerCase();
-                        System.out.println((op));
+                       // System.out.println((op));
                         if (OPERATORS.containsKey(op)) {
 
                             for (int i = 0; i < len; i++) buffer.append(next());
