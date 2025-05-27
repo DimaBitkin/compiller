@@ -9,12 +9,30 @@ public class GrammarNormalizer {
 
         Rule(String left, String rightSide) {
             this.left = left;
-            this.right = Arrays.asList(rightSide.trim().split(" "));
+            this.right = Arrays.asList(rightSide.trim().split("\\s+"));
+        }
+
+        Rule(String left, List<String> right) {
+            this.left = left;
+            this.right = new ArrayList<>(right);
         }
 
         @Override
         public String toString() {
             return left + " → " + String.join(" ", right);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (!(obj instanceof Rule)) return false;
+            Rule other = (Rule) obj;
+            return Objects.equals(left, other.left) && Objects.equals(right, other.right);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(left, right);
         }
     }
 
@@ -37,25 +55,9 @@ public class GrammarNormalizer {
         rules = removeChainRules(nonTerminals, rules);
         rules = convertToCNF(new HashSet<>(nonTerminals), new HashSet<>(terminals), rules);
 
-//        System.out.println("\nНормализованные терминальные правила:");
-//        Set<String> printedTerminals = new HashSet<>();
-//        for (Rule rule : rules) {
-//            if (rule.right.size() == 1 && terminals.contains(rule.right.get(0))) {
-//                if (printedTerminals.add(rule.left)) {
-//                    System.out.println(rule);
-//                }
-//            }
-//        }
-//
-//        System.out.println("\nОстальные правила:");
-//        for (Rule rule : rules) {
-//            if (!(rule.right.size() == 1 && terminals.contains(rule.right.get(0)))) {
-//                System.out.println(rule);
-//            }
-//        }
-
-        return rules;
+        return new ArrayList<>(new LinkedHashSet<>(rules));
     }
+
     public static void printRules(List<Rule> rules, Set<String> terminals) {
         Map<String, List<Rule>> grouped = new TreeMap<>();
         for (Rule rule : rules) {
@@ -78,7 +80,8 @@ public class GrammarNormalizer {
             changed = false;
             for (Rule rule : rules) {
                 if (!N.contains(rule.left)) {
-                    boolean allInNOrTerm = rule.right.stream().allMatch(sym -> terminals.contains(sym) || N.contains(sym) || sym.equals("ε"));
+                    boolean allInNOrTerm = rule.right.stream().allMatch(sym ->
+                            terminals.contains(sym) || N.contains(sym) || sym.equals("ε"));
                     if (allInNOrTerm) {
                         N.add(rule.left);
                         changed = true;
@@ -96,7 +99,8 @@ public class GrammarNormalizer {
             changed = false;
             for (Rule rule : rules) {
                 if (!productive.contains(rule.left)) {
-                    if (rule.right.contains("ε") || rule.right.stream().allMatch(sym -> terminals.contains(sym) || productive.contains(sym))) {
+                    if (rule.right.contains("ε") || rule.right.stream().allMatch(sym ->
+                            terminals.contains(sym) || productive.contains(sym))) {
                         productive.add(rule.left);
                         changed = true;
                     }
@@ -105,8 +109,9 @@ public class GrammarNormalizer {
         } while (changed);
         return rules.stream()
                 .filter(rule -> productive.contains(rule.left)
-                        && rule.right.stream().allMatch(sym -> terminals.contains(sym) || productive.contains(sym) || sym.equals("ε")))
-                .toList();
+                        && rule.right.stream().allMatch(sym ->
+                        terminals.contains(sym) || productive.contains(sym) || sym.equals("ε")))
+                .collect(Collectors.toList());
     }
 
     static List<Rule> removeUnreachableSymbols(String startSymbol, Set<String> nonTerminals, Set<String> terminals, List<Rule> rules) {
@@ -118,8 +123,7 @@ public class GrammarNormalizer {
             for (Rule rule : rules) {
                 if (reachable.contains(rule.left)) {
                     for (String sym : rule.right) {
-                        if ((nonTerminals.contains(sym) || terminals.contains(sym)) && !reachable.contains(sym)) {
-                            reachable.add(sym);
+                        if ((nonTerminals.contains(sym) || terminals.contains(sym)) && reachable.add(sym)) {
                             changed = true;
                         }
                     }
@@ -129,7 +133,7 @@ public class GrammarNormalizer {
         return rules.stream()
                 .filter(rule -> reachable.contains(rule.left)
                         && rule.right.stream().allMatch(sym -> reachable.contains(sym) || sym.equals("ε")))
-                .toList();
+                .collect(Collectors.toList());
     }
 
     static List<Rule> removeEpsilonRules(Set<String> nonTerminals, Set<String> terminals, List<Rule> rules, String startSymbol) {
@@ -173,7 +177,7 @@ public class GrammarNormalizer {
                 }
                 List<String> filtered = newRight.stream().filter(Objects::nonNull).collect(Collectors.toList());
                 if (!filtered.isEmpty()) {
-                    updatedRules.add(new Rule(rule.left, String.join(" ", filtered)));
+                    updatedRules.add(new Rule(rule.left, filtered));
                 }
             }
         }
@@ -181,8 +185,8 @@ public class GrammarNormalizer {
         List<Rule> finalRules = new ArrayList<>(updatedRules);
         if (nullable.contains(startSymbol)) {
             String newStart = startSymbol + "'";
-            finalRules.add(new Rule(newStart, startSymbol));
-            finalRules.add(new Rule(newStart, "ε"));
+            finalRules.add(new Rule(newStart, List.of(startSymbol)));
+            finalRules.add(new Rule(newStart, List.of("ε")));
             nonTerminals.add(newStart);
         }
 
@@ -197,17 +201,14 @@ public class GrammarNormalizer {
             boolean changed;
             do {
                 changed = false;
-                Set<String> toAdd = new HashSet<>();
                 for (Rule rule : rules) {
-                    if (reachable.contains(rule.left) && rule.right.size() == 1 && nonTerminals.contains(rule.right.get(0))) {
+                    if (reachable.contains(rule.left) &&
+                            rule.right.size() == 1 &&
+                            nonTerminals.contains(rule.right.get(0))) {
                         String B = rule.right.get(0);
-                        if (!reachable.contains(B)) {
-                            toAdd.add(B);
-                            changed = true;
-                        }
+                        if (reachable.add(B)) changed = true;
                     }
                 }
-                reachable.addAll(toAdd);
             } while (changed);
             chainMap.put(A, reachable);
         }
@@ -216,10 +217,9 @@ public class GrammarNormalizer {
         for (String A : nonTerminals) {
             for (String B : chainMap.get(A)) {
                 for (Rule rule : rules) {
-                    if (rule.left.equals(B)) {
-                        if (!(rule.right.size() == 1 && nonTerminals.contains(rule.right.get(0)))) {
-                            newRules.add(new Rule(A, String.join(" ", rule.right)));
-                        }
+                    if (rule.left.equals(B) &&
+                            !(rule.right.size() == 1 && nonTerminals.contains(rule.right.get(0)))) {
+                        newRules.add(new Rule(A, rule.right));
                     }
                 }
             }
@@ -234,7 +234,6 @@ public class GrammarNormalizer {
         for (Rule rule : rules) {
             List<String> right = rule.right;
             if (right.size() == 1) {
-                String sym = right.get(0);
                 cnfRules.add(rule);
             } else {
                 List<String> newRight = new ArrayList<>();
@@ -249,7 +248,7 @@ public class GrammarNormalizer {
                 }
 
                 for (Map.Entry<String, String> entry : terminalToNonTerminal.entrySet()) {
-                    Rule tRule = new Rule(entry.getValue(), entry.getKey());
+                    Rule tRule = new Rule(entry.getValue(), List.of(entry.getKey()));
                     if (!cnfRules.contains(tRule)) {
                         cnfRules.add(tRule);
                         nonTerminals.add(entry.getValue());
@@ -258,18 +257,14 @@ public class GrammarNormalizer {
 
                 String currentLeft = rule.left;
                 while (newRight.size() > 2) {
-                    List<String> pair = Arrays.asList(newRight.get(0), newRight.get(1));
-                    String newNonTerminal = helperMap.get(pair);
-                    if (newNonTerminal == null) {
-                        newNonTerminal = "X" + (++helperCounter);
-                        helperMap.put(pair, newNonTerminal);
-                        cnfRules.add(new Rule(newNonTerminal, String.join(" ", pair)));
-                        nonTerminals.add(newNonTerminal);
-                    }
+                    List<String> pair = newRight.subList(0, 2);
+                    String newNonTerminal = helperMap.computeIfAbsent(new ArrayList<>(pair), k -> "X" + (++helperCounter));
+                    cnfRules.add(new Rule(newNonTerminal, new ArrayList<>(pair)));
+                    nonTerminals.add(newNonTerminal);
                     newRight = new ArrayList<>(newRight.subList(1, newRight.size()));
                     newRight.set(0, newNonTerminal);
                 }
-                cnfRules.add(new Rule(currentLeft, String.join(" ", newRight)));
+                cnfRules.add(new Rule(currentLeft, newRight));
             }
         }
 
